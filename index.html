@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<style type="text/css">
+		body {
+			padding: 0;
+			margin: 0;
+		}
+		img {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 300px;
+			height: 250px;
+			-webkit-transition: all 0.7s ease-in-out;
+            -moz-transition: all 0.7s ease-in-out;
+            -o-transition: all 0.7s ease-in-out;
+            transition: all 0.7s ease-in-out;
+		}
+
+		#spacebar img {
+			-webkit-transition: all 0.3s ease-in-out;
+            -moz-transition: all 0.3s ease-in-out;
+            -o-transition: all 0.3s ease-in-out;
+            transition: all 0.3s ease-in-out;
+		}
+
+		#startCountdown {
+			/*color: orange;*/
+			padding: 0;
+			margin: 0;
+		    position: absolute;
+		    top: 50%;
+		    left: 50%;
+		    transform: translateX(-50%) translateY(-50%);
+		    text-align: center;
+		    width: 100%;
+		    font-size: 1.2em;
+		}
+
+		#gameSpace {
+			position: relative;
+			width: 300px;
+			height: 250px;
+		}
+		#adBlocker {
+			position: absolute;
+			background-color: #fff; 
+			top: 0;
+			left: 0;
+			bottom: 0;
+			right: 0;
+		}
+	</style>
+</head>
+<body>
+
+	<div id="gameSpace">
+		<canvas id="canvas" width="300" height="250" style="background-color: #a5bd7b;"></canvas>
+		
+		<p id="startCountdown">Use the arrow keys left and right or keys A(left) and D(right) to control the keeper <br>Press spacebar to start</p>
+		<img id="bg" src="bg.jpg" alt="background">
+		<img id="dude" src="dude.png" alt="ghost">
+		<img id="spacebar" src="spaceBar.png" alt="spacebar text">
+		<img id="p" src="p.png" alt="letter p">
+		<img id="h" src="h.png" alt="letter h">
+		<img id="a" src="a.png" alt="letter a">
+		<img id="n" src="n.png" alt="letter n">
+		<img id="t" src="t.png" alt="letter t">
+		<img id="o" src="o.png" alt="letter o">
+		<img id="m" src="m.png" alt="letter m">
+		<div id="adBlocker"></div>
+	</div>
+	
+
+	<script type="text/javascript">
+
+	var addEvent = function (fn) {
+		if ( window.addEventListener ) {
+		    window.addEventListener( 'load', fn, false );
+		} else if ( window.attachEvent ) {
+		    window.attachEvent( 'onload', fn );
+		} else {
+		    window.onload = fn;
+		}
+	}
+
+	var removeBlocker = function () {
+		var adBlocker = document.getElementById('adBlocker');
+		adBlocker.style.display = 'none';
+	}
+
+	addEvent(removeBlocker);
+
+	var animateScreen = (function() {
+
+		var animate = function (id, move, value) {
+
+	        var el = document.getElementById(id);
+	        el.style[move] = value;
+
+	        return el;
+	    }
+
+	    var upDown = function (id, interval, moveStart, moveFinish) {
+
+	        var el = document.getElementById(id);
+	            i = 0;
+
+	        var move = setInterval(function() {
+	            
+	            var topState = el.style.top;
+
+	                if(topState === moveFinish + 'px'){
+	                    el.style.top = moveStart + 'px';
+	                } else {
+	                    el.style.top = moveFinish + 'px';
+	                }
+
+	                i++;
+	        },interval);
+
+	        return move;
+	    };
+
+
+	    var blink = function (id, interval, start, finish) {
+
+	        var el = animate(id, 'opacity', 1),
+	            i = 0;
+
+	        var blinkTime = setInterval(function() {
+	            
+	            var opState = el.style.opacity;
+
+	                if(opState === '1'){
+	                    el.style.opacity = start;
+	                } else {
+	                    el.style.opacity = finish;
+	                }
+
+	                i++;
+	        },interval);
+
+	        return blinkTime;
+	    };
+
+	    var init = function () {
+    	    var spacebarBlink = blink('spacebar', 300, 0.2, 1);
+		    var dudeBlink = blink('dude', 1000, 0.5, 1);
+		    var p = upDown('p', 300, -35, 50);
+		    var h = upDown('h', 400, 0, 50);
+		    var a = upDown('a', 500, -30, 50);
+		    var n = upDown('n', 600, 0, 50);
+		    var t = upDown('t', 700, -35, 50);
+		    var o = upDown('o', 700, 0, 50);
+		    var m = upDown('m', 500, -40, 30);
+
+		    return [spacebarBlink, dudeBlink, p,h,a,n,t,o,m]
+	    }
+
+	    var stopAnimation = function(clearArr) {
+	    	var i = clearArr.length;
+	    	while(i--) {
+	    		clearInterval(clearArr[i]);	
+	    	};
+	    }
+
+	    return {
+	    	init: init,
+	    	stopAnimation: stopAnimation
+	    };
+	 
+	})();
+	
+	var clearArr = animateScreen.init();
+		
+		keeper = {
+			x: 130,
+			y: 182,
+			w: 40,
+			h: 20, 
+			color: '#666',
+			score: 0
+		};
+
+		ball = {
+			cX: 150,
+			cY: 20,
+			r: 10,
+			color: 'red',
+			speed: null,
+			sign: null,
+			angle: null,
+			speedCorrection: null,
+			stop: null
+		};
+		gameBounds = {
+			plays: 0,
+
+		}
+		
+		var move = {
+			keys: [],
+			speed: 3,
+
+			init: function (){
+				this.bindKeyDown();
+				this.bindKeyUp();
+			},
+
+			bindKeyDown: function () {
+				addEventListener('keydown', this.getKey.bind(this), false);
+			},
+
+			bindKeyUp: function () {
+				addEventListener('keyup', this.deleteKey.bind(this), false);
+			},
+
+			getKey: function (e) {
+				this.keys[e.keyCode] = true;
+			},
+
+			deleteKey: function (e) {
+				delete this.keys[e.keyCode];
+			}
+		};
+	
+
+		var game = {
+
+			ctx: null,
+			canvas: null,
+			width: 300,
+			height: 250,
+			score: 0,
+			spacebarPressed: 0,
+
+			getCanvas: function () {
+				this.canvas = document.getElementById("canvas"),
+	    		this.ctx = this.canvas.getContext("2d");
+			},
+	
+			init: function() {
+				
+				this.update();
+				this.render();
+				collision = this.intersects(ball, keeper);
+				if (collision) {
+					ball.saved = true;
+				}
+
+				if(this.spacebarPressed < 3) {
+					this.spacebarPressed++;
+				}
+				
+				
+				if(this.spacebarPressed > 2) {
+					setTimeout(function () {
+						moveBall.moveBallUpdate();
+					}, 5000);
+					
+				}
+					
+			},
+
+			update: function() {
+				if (move.keys[37] || move.keys[65]) keeper.x -= move.speed;
+				// if (move.keys[38]) keeper.y -= move.speed;
+				if (move.keys[39] || move.keys[68]) keeper.x += move.speed;
+				// if (move.keys[40]) keeper.y += move.speed;
+
+				if (keeper.x < 0) keeper.x = 0;
+				if (keeper.y < 0) keeper.y = 0;
+				if (keeper.x + keeper.w > this.width) keeper.x = this.width - keeper.w;
+				if (keeper.y + keeper.h > this.height) keeper.y = this.height - keeper.h;
+			},
+
+			render: function () {
+				
+				
+				this.ctx.clearRect(0, 0, this.width, this.height);
+
+				this.ctx.beginPath();
+				this.ctx.fillStyle = keeper.color;
+				this.ctx.fill();
+				this.ctx.fillRect(keeper.x ,keeper.y , keeper.w, keeper.h);
+
+				this.ctx.beginPath();
+				this.ctx.arc(ball.cX, ball.cY, ball.r, 0, 2 * Math.PI, false);
+				this.ctx.fillStyle = 'red';
+				this.ctx.fill();
+
+				this.ctx.beginPath();
+				this.ctx.fillStyle = 'blue';
+
+				this.ctx.strokeStyle = '#000';
+				this.ctx.lineWidth = 2;
+				this.ctx.strokeRect(50 ,212 , 200, 40);
+				this.ctx.stroke();
+
+				this.ctx.beginPath();
+				this.ctx.fillStyle = '#000';
+				this.ctx.font = "bold 18px Helvetica"
+				this.ctx.fillText('Saved: ' + keeper.score, 10, 20);
+
+				this.ctx.beginPath();
+				this.ctx.fillStyle = '#fff';
+				this.ctx.fillText('Shots: ' + gameBounds.plays, 220, 20);
+			},
+
+			intersects: function (circle, rectangle) {
+				// limits value to the range min..max
+				function clamp(val, min, max) {
+				    return Math.max(min, Math.min(max, val))
+				}
+
+				// Find the closest point to the circle within the rectangle
+				// Assumes axis alignment! ie rect must not be rotated
+				var closestX = clamp(circle.cX, rectangle.x, rectangle.x + rectangle.w);
+				var closestY = clamp(circle.cY, rectangle.y, rectangle.y + rectangle.h);
+				
+				// Calculate the distance between the circle's center and this closest point
+				var distanceX = circle.cX - closestX;
+				var distanceY = circle.cY - closestY;
+
+				// If the distance is less than the circle's radius, an intersection occurs
+				var distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+				return distanceSquared < (circle.r * circle.r);
+
+			}
+
+			
+			
+		};
+
+		moveBall = {
+
+			moveBallUpdate: function() {
+				var directionChange = 1;
+				
+				if(!ball.stop) {
+					if (ball.saved) {
+						directionChange = -1 * 0.7
+					}
+					if (ball.speed) {
+					
+						ball.cX += ball.angle * ball.sign * ball.speed;
+						ball.cY += directionChange * ball.speed + ball.speedCorrection;
+
+					}
+				}
+				
+				// if the ball hits the bottom of the canvas
+				if (ball.cY + ball.r >= game.height) {
+					if (!ball.stop) {
+						ball.stop = true;
+						
+						setTimeout(function() {
+							moveBall.reset();
+						}, 1000);
+					}
+					ball.cY = game.height - ball.r;
+					// ball.cX = ball.stop;
+				}
+
+				// if the ball hits the ball outside the canvas
+				if (ball.cY < 0 - ball.r) {
+					if (!ball.stop) {
+						ball.stop = ball.cX
+						setTimeout(function() {
+							moveBall.reset();
+						}, 1000);
+					}
+					// keeper.score++;
+				}
+				
+			},
+
+			ballSpeed: function () {
+
+				setTimeout(function() {
+					ball.speed = 7;
+					ball.sign = Math.random() < 0.5 ? -1 : 1;
+					ball.angle =  Math.random() * 0.40;
+				}, 1000);	
+			},
+
+			reset: function (score) {
+				if (ball.saved) {
+					keeper.score++;
+				};
+
+				ball.cX = 150,
+				ball.cY = 20
+				ball.stop = null
+				ball.speed = null,
+				ball.sign = null,
+				ball.angle = null,
+				ball.speedCorrection = null,
+				ball.saved = false,
+
+				gameBounds.plays++ 
+
+				if (gameBounds.plays < 3) {
+					moveBall.ballSpeed();
+					
+				}
+			}
+		}
+
+		moveBall.ballSpeed();
+		move.init();
+		game.getCanvas();
+		
+		var count = 0;
+
+		window.requestAnimFrame = (function(){
+		  return  window.requestAnimationFrame       ||
+		          window.webkitRequestAnimationFrame ||
+		          window.mozRequestAnimationFrame    ||
+		          function( callback ){
+		            window.setTimeout(callback, 1000 / 60);
+		          };
+		})();
+
+		var gameloop = function (){
+		  requestAnimFrame(gameloop);
+		  // render();
+		  game.init();
+		};
+		var clearImages = function () {
+
+			var images = document.getElementsByTagName('img');
+			var i = images.length;
+			while(i--) {
+				images[i].style.display = 'none';
+			}
+		};
+
+		var spacebarPress = function (e) {
+
+			if(e.keyCode == 32 ) {
+				count++;
+				if( count === 1) {
+					
+					animateScreen.stopAnimation(clearArr);
+					clearImages();
+					game.init();
+									
+				} else if (count === 2) {
+					gameloop();
+					countdown();
+					window.removeEventListener('keydown', spacebarPress, false)
+				}
+			}
+		};
+
+		var countdown = function() {
+			var count = 3;
+			var text = document.getElementById('startCountdown');
+
+			text.innerHTML = count;
+
+			var stopCount = setInterval(function() {
+				count--;
+				if (count === 0) {
+					count = 'GO!!';
+				} 
+				else if (isNaN(count)){
+					count = '';
+					clearInterval(stopCount);
+				}
+				
+				text.innerHTML = count;
+
+			}, 1000);
+		}
+		window.addEventListener('keydown', spacebarPress, false);
+	</script>
+</body>
+</html>
